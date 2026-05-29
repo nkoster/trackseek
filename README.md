@@ -42,19 +42,19 @@ Main tables:
 - `tracks`
 - `fingerprints`
 
-## artists
+artists
 
 - `id`
 - `name`
 
-## tracks
+tracks
 
 - `id`
 - `path`
 - `title`
 - `artist_id`
 
-## fingerprints
+fingerprints
 
 - `hash`
 - `track_id`
