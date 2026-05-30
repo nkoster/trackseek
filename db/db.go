@@ -116,10 +116,11 @@ func ensureTracksTable() error {
 		return err
 	}
 
+	if hasRows {
+		return fmt.Errorf("tracks schema mismatch detected; refusing to modify existing tables automatically")
+	}
+
 	statements := []string{
-		`DROP TABLE IF EXISTS fingerprints;`,
-		`DROP INDEX IF EXISTS idx_tracks_artist_id;`,
-		`DROP TABLE IF EXISTS tracks;`,
 		`CREATE TABLE tracks (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			path TEXT NOT NULL,
@@ -132,7 +133,7 @@ func ensureTracksTable() error {
 
 	for _, statement := range statements {
 		if _, err := DB.Exec(statement); err != nil {
-			return fmt.Errorf("tracks schema update failed: %w", err)
+			return fmt.Errorf("tracks schema creation failed: %w", err)
 		}
 	}
 
@@ -187,9 +188,11 @@ func ensureFingerprintsTable() error {
 		return err
 	}
 
+	if hasRows {
+		return fmt.Errorf("fingerprints schema mismatch detected; refusing to modify existing tables automatically")
+	}
+
 	statements := []string{
-		`DROP INDEX IF EXISTS idx_fingerprints_hash;`,
-		`DROP TABLE IF EXISTS fingerprints;`,
 		`CREATE TABLE fingerprints (
 			hash INTEGER NOT NULL,
 			track_id INTEGER NOT NULL,
@@ -201,7 +204,7 @@ func ensureFingerprintsTable() error {
 
 	for _, statement := range statements {
 		if _, err := DB.Exec(statement); err != nil {
-			return fmt.Errorf("fingerprints schema update failed: %w", err)
+			return fmt.Errorf("fingerprints schema creation failed: %w", err)
 		}
 	}
 
