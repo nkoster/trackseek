@@ -85,14 +85,12 @@ func ExtractPeaks(samples []float64) []models.Peak {
 	return peaks
 }
 
-func StoreFingerprints(db *sql.DB, trackID int64, sampleRate int, peaks []models.Peak) (int, error) {
+func ReplaceTrackFingerprintsTx(tx *sql.Tx, trackID int64, sampleRate int, peaks []models.Peak) (int, error) {
 	fingerprints := fingerprintsFromPeaks(sampleRate, peaks)
 
-	tx, err := db.Begin()
-	if err != nil {
+	if _, err := tx.Exec(`DELETE FROM fingerprints WHERE track_id = ?`, trackID); err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`
 		INSERT INTO fingerprints(hash, track_id, time_ms)
@@ -107,10 +105,6 @@ func StoreFingerprints(db *sql.DB, trackID int64, sampleRate int, peaks []models
 		if _, err := stmt.Exec(fingerprint.Hash, trackID, fingerprint.TimeMS); err != nil {
 			return 0, err
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, err
 	}
 
 	return len(fingerprints), nil

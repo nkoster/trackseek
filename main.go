@@ -110,13 +110,23 @@ func main() {
 		peaks := fingerprint.ExtractPeaks(samples)
 		fmt.Printf("found %d peaks\n", len(peaks))
 
-		trackID, err := (models.Track{Path: audioPath, Title: title, Artist: &models.Artist{Name: artist}}).Save()
+		tx, err := db.DB.Begin()
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer tx.Rollback()
+
+		trackID, err := (models.Track{Path: audioPath, Title: title, Artist: &models.Artist{Name: artist}}).UpsertByPathTx(tx)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		count, err := fingerprint.StoreFingerprints(db.DB, trackID, sampleRate, peaks)
+		count, err := fingerprint.ReplaceTrackFingerprintsTx(tx, trackID, sampleRate, peaks)
 		if err != nil {
+			log.Fatal(err)
+		}
+
+		if err := tx.Commit(); err != nil {
 			log.Fatal(err)
 		}
 

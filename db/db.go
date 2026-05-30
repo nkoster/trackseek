@@ -112,7 +112,17 @@ func ensureTracksTable() error {
 	}
 
 	if hasRows && hasPath && hasTitle && hasArtistID && hasArtistForeignKey {
-		_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_tracks_artist_id ON tracks(artist_id);`)
+		statements := []string{
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_tracks_path ON tracks(path);`,
+			`CREATE INDEX IF NOT EXISTS idx_tracks_artist_id ON tracks(artist_id);`,
+		}
+
+		for _, statement := range statements {
+			if _, err := DB.Exec(statement); err != nil {
+				return err
+			}
+		}
+
 		return err
 	}
 
@@ -128,6 +138,7 @@ func ensureTracksTable() error {
 			artist_id INTEGER NOT NULL,
 			FOREIGN KEY(artist_id) REFERENCES artists(id)
 		);`,
+		`CREATE UNIQUE INDEX idx_tracks_path ON tracks(path);`,
 		`CREATE INDEX idx_tracks_artist_id ON tracks(artist_id);`,
 	}
 

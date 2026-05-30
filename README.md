@@ -59,6 +59,9 @@ tracks
 - `title`
 - `artist_id`
 
+`tracks.path` is unique.
+Indexing the same file path again updates the existing track metadata and replaces its fingerprints.
+
 fingerprints
 
 - `hash`
@@ -127,8 +130,11 @@ This will:
 
 - read the audio file
 - create/find the artist
-- create the track row
-- store fingerprints
+- create or update the track row for that file path
+- replace stored fingerprints for that track
+
+Re-indexing the same file path is safe.
+The existing track entry is reused instead of creating a duplicate row.
 
 ## Match a sample
 
@@ -364,6 +370,7 @@ api-test/match.http
 - `.wav` and `.mp3` are supported
 - this is a prototype, not a final production matcher
 - schema mismatches now fail explicitly instead of recreating existing tables automatically
+- track paths are unique, so indexing the same file path updates the existing track instead of duplicating it
 - the HTTP match endpoint returns SSE with JSON payload data
 
 # Ideas
