@@ -9,11 +9,11 @@ Accept: text/event-stream
 --TrackseekBoundary
 Content-Disposition: form-data; name="minScore"
 
-80
+400
 --TrackseekBoundary
 Content-Disposition: form-data; name="threshold"
 
-9000
+1100
 --TrackseekBoundary
 Content-Disposition: form-data; name="sample"; filename="match-test.mp3"
 Content-Type: audio/mpeg
@@ -30,5 +30,5 @@ Accept: text/event-stream
 --TrackseekBoundary
 Content-Disposition: form-data; name="minScore"
 
-80
+5
 --TrackseekBoundary--
