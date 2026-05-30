@@ -142,13 +142,13 @@ Basic:
 With a minimum accepted score:
 
 ```bash
-./trackseek match --min-score=80 ./sample.mp3
+./trackseek match --min-score=200 ./sample.mp3
 ```
 
 With early stop for clear matches:
 
 ```bash
-./trackseek match --min-score=80 --threshold=280 ./sample.mp3
+./trackseek match --min-score=200 --threshold=600 ./sample.mp3
 ```
 
 ## Start the HTTP server
@@ -183,14 +183,18 @@ When the server starts:
 
 # Matching flags
 
+Offsets are grouped in 100 ms buckets. This makes nearby hits count together.
+
 ## `--min-score`
 
 This is the minimum score needed to accept a match.
 
+`200` is a good starting point.
+
 Example:
 
-- if best score is `57`
-- and `--min-score=80`
+- if best score is `157`
+- and `--min-score=200`
 - then result is `no matching track found`
 
 ## `--threshold`
@@ -201,6 +205,8 @@ If a candidate reaches this score during matching,
 the matcher stops early and returns that result.
 
 This is useful when you want to save time and resources.
+
+`600` is a good starting point.
 
 If this happens, the output shows:
 
@@ -247,8 +253,8 @@ Example with `curl`:
 ```bash
 curl -N \
   -F "sample=@./match-test.mp3" \
-  -F "minScore=80" \
-  -F "threshold=280" \
+  -F "minScore=200" \
+  -F "threshold=600" \
   http://localhost:8080/match
 ```
 
@@ -311,8 +317,8 @@ done
 ## 2. Test with a sample
 
 ```bash
-./trackseek match --min-score=80 --threshold=280 ./match-test.mp3
-./trackseek match --min-score=80 --threshold=280 ./match-test-fail.mp3
+./trackseek match --min-score=200 --threshold=600 ./match-test.mp3
+./trackseek match --min-score=200 --threshold=600 ./match-test-fail.mp3
 ```
 
 ## 3. Read the result
@@ -320,7 +326,7 @@ done
 Possible output:
 
 ```text
-best match: track_id=17 title="Time doesnt exist" artist="Nortsch" path=./nortsch-time.mp3 score=289 offset_ms=69474
+best match: track_id=17 title="Time doesnt exist" artist="Nortsch" path=./nortsch-time.mp3 score=637 offset_ms=69474
 ```
 
 Or with early stop:
@@ -342,8 +348,8 @@ Then call the match endpoint:
 ```bash
 curl -N \
   -F "sample=@./match-test.mp3" \
-  -F "minScore=80" \
-  -F "threshold=280" \
+  -F "minScore=200" \
+  -F "threshold=600" \
   http://localhost:8080/match
 ```
 
@@ -357,7 +363,7 @@ api-test/match.http
 
 - `.wav` and `.mp3` are supported
 - this is a prototype, not a final production matcher
-- the schema code may recreate old tables when the schema changes
+- schema mismatches now fail explicitly instead of recreating existing tables automatically
 - the HTTP match endpoint returns SSE with JSON payload data
 
 # Ideas
