@@ -209,7 +209,6 @@ If this happens, the output shows:
 ```
 
 That means the match was accepted early.
-It does **not** mean the shown score is the full final score.
 
 # HTTP API
 
