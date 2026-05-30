@@ -11,16 +11,6 @@ import (
 	"gonum.org/v1/gonum/dsp/fourier"
 )
 
-const (
-	windowSize     = 4096
-	hopSize        = 2048
-	maxPeaksFrame  = 5
-	maxTargets     = 5
-	minDeltaFrames = 1
-	maxDeltaFrames = 30
-	offsetBucketMS = 100
-)
-
 var ErrNoMatch = errors.New("no matching track found")
 
 type Fingerprint struct {
@@ -72,13 +62,13 @@ func ExtractPeaks(samples []float64) []models.Peak {
 		frame := make([]float64, windowSize)
 
 		for i := 0; i < windowSize; i++ {
-			w := 0.5 * (1 - math.Cos(2*math.Pi*float64(i)/float64(windowSize-1)))
+			w := hanningWindowScale * (1 - math.Cos(2*math.Pi*float64(i)/float64(windowSize-1)))
 			frame[i] = samples[start+i] * w
 		}
 
 		coeffs := fft.Coefficients(nil, frame)
 
-		framePeaks := topPeaks(coeffs, start/hopSize, maxPeaksFrame)
+		framePeaks := topPeaks(coeffs, start/hopSize, maxPeaksPerFrame)
 		peaks = append(peaks, framePeaks...)
 	}
 
@@ -155,7 +145,7 @@ func MatchFingerprints(db *sql.DB, sampleRate int, peaks []models.Peak, threshol
 			score := scores[trackID][offsetBucket]
 
 			if !found || score > best.Score {
-				best = MatchResult{TrackID: trackID, Score: score, OffsetMS: offsetBucket * offsetBucketMS}
+				best = MatchResult{TrackID: trackID, Score: score, OffsetMS: offsetBucket * offsetBucketMilliseconds}
 				found = true
 
 				if threshold > 0 && score >= threshold {
@@ -304,7 +294,7 @@ func MatchFingerprintsInMemory(index *InMemoryIndex, sampleRate int, peaks []mod
 			score := scores[hit.TrackID][offsetBucket]
 
 			if !found || score > best.Score {
-				best = MatchResult{TrackID: hit.TrackID, Score: score, OffsetMS: offsetBucket * offsetBucketMS}
+				best = MatchResult{TrackID: hit.TrackID, Score: score, OffsetMS: offsetBucket * offsetBucketMilliseconds}
 				found = true
 
 				if threshold > 0 && score >= threshold {
@@ -364,7 +354,7 @@ func topPeaks(coeffs []complex128, timeFrame int, maxPeaks int) []models.Peak {
 
 	limit := len(coeffs) / 2
 
-	for bin := 5; bin < limit; bin++ {
+	for bin := minPeakBin; bin < limit; bin++ {
 		mag := cmplxAbs(coeffs[bin])
 
 		if bin > 0 && bin < limit-1 {
@@ -403,7 +393,7 @@ func cmplxAbs(c complex128) float64 {
 }
 
 func fingerprintsFromPeaks(sampleRate int, peaks []models.Peak) []Fingerprint {
-	fingerprints := make([]Fingerprint, 0, len(peaks)*maxTargets)
+	fingerprints := make([]Fingerprint, 0, len(peaks)*maxTargetsPerAnchor)
 
 	for i := 0; i < len(peaks); i++ {
 		anchor := peaks[i]
@@ -427,7 +417,7 @@ func fingerprintsFromPeaks(sampleRate int, peaks []models.Peak) []Fingerprint {
 			})
 
 			targets++
-			if targets >= maxTargets {
+			if targets >= maxTargetsPerAnchor {
 				break
 			}
 		}
@@ -437,18 +427,18 @@ func fingerprintsFromPeaks(sampleRate int, peaks []models.Peak) []Fingerprint {
 }
 
 func makeHash(freq1, freq2, deltaFrames int) int64 {
-	return int64((freq1&0xFFFF)<<32 | (freq2&0xFFFF)<<16 | (deltaFrames & 0xFFFF))
+	return int64((freq1&hashComponentMask)<<32 | (freq2&hashComponentMask)<<16 | (deltaFrames & hashComponentMask))
 }
 
 func frameToMs(frame int, sampleRate int) int {
 	sampleIndex := frame * hopSize
-	return int(float64(sampleIndex) / float64(sampleRate) * 1000.0)
+	return int(float64(sampleIndex) / float64(sampleRate) * millisecondsPerSecond)
 }
 
 func bucketOffsetMS(offsetMS int) int {
 	if offsetMS >= 0 {
-		return offsetMS / offsetBucketMS
+		return offsetMS / offsetBucketMilliseconds
 	}
 
-	return -((-offsetMS + offsetBucketMS - 1) / offsetBucketMS)
+	return -((-offsetMS + offsetBucketMilliseconds - 1) / offsetBucketMilliseconds)
 }

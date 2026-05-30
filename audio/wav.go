@@ -14,8 +14,6 @@ import (
 	"github.com/hajimehoshi/go-mp3"
 )
 
-const defaultTargetSampleRate = 44100
-
 func ReadMono(path string) ([]float64, int, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	targetSampleRate, err := getTargetSampleRate()
@@ -102,7 +100,7 @@ func readWAVMono(path string) ([]float64, int, error) {
 		}
 
 		avg := float64(sum) / float64(channels)
-		samples = append(samples, avg/32768.0)
+		samples = append(samples, avg/pcm16FullScale)
 	}
 
 	return samples, sampleRate, nil
@@ -129,9 +127,7 @@ func readMP3Mono(path string) ([]float64, int, error) {
 		return nil, 0, fmt.Errorf("empty audio buffer")
 	}
 
-	const bytesPerSample = 2
-	const channels = 2
-	frameSize := bytesPerSample * channels
+	frameSize := mp3DecoderBytesPerSample * mp3DecoderChannels
 	if len(raw) < frameSize {
 		return nil, 0, fmt.Errorf("invalid mp3 audio buffer")
 	}
@@ -141,7 +137,7 @@ func readMP3Mono(path string) ([]float64, int, error) {
 		left := int16(binary.LittleEndian.Uint16(raw[i : i+2]))
 		right := int16(binary.LittleEndian.Uint16(raw[i+2 : i+4]))
 		avg := (float64(left) + float64(right)) / 2.0
-		samples = append(samples, avg/32768.0)
+		samples = append(samples, avg/pcm16FullScale)
 	}
 
 	return samples, decoder.SampleRate(), nil
@@ -159,6 +155,11 @@ func resampleMono(samples []float64, inputRate int, outputRate int) ([]float64, 
 	if inputRate == outputRate {
 		copied := append([]float64(nil), samples...)
 		return copied, nil
+	}
+
+	if outputRate < inputRate {
+		cutoffHz := lowPassCutoffRatio * float64(outputRate)
+		samples = lowPassFilter(samples, inputRate, cutoffHz, lowPassFilterTaps)
 	}
 
 	outputLen := int(math.Round(float64(len(samples)) * float64(outputRate) / float64(inputRate)))
@@ -190,4 +191,69 @@ func resampleMono(samples []float64, inputRate int, outputRate int) ([]float64, 
 	}
 
 	return resampled, nil
+}
+
+func lowPassFilter(samples []float64, sampleRate int, cutoffHz float64, taps int) []float64 {
+	if len(samples) == 0 || sampleRate <= 0 || cutoffHz <= 0 {
+		return append([]float64(nil), samples...)
+	}
+
+	if cutoffHz >= float64(sampleRate)/2 {
+		return append([]float64(nil), samples...)
+	}
+
+	if taps < 3 {
+		taps = 3
+	}
+
+	if taps%2 == 0 {
+		taps++
+	}
+
+	kernel := make([]float64, taps)
+	mid := taps / 2
+	normalizedCutoff := cutoffHz / float64(sampleRate)
+	var sum float64
+
+	for i := 0; i < taps; i++ {
+		n := float64(i - mid)
+		var value float64
+		if n == 0 {
+			value = 2 * normalizedCutoff
+		} else {
+			value = math.Sin(2*math.Pi*normalizedCutoff*n) / (math.Pi * n)
+		}
+
+		window := hammingWindowAlpha - hammingWindowBeta*math.Cos(2*math.Pi*float64(i)/float64(taps-1))
+		kernel[i] = value * window
+		sum += kernel[i]
+	}
+
+	if sum == 0 {
+		return append([]float64(nil), samples...)
+	}
+
+	for i := range kernel {
+		kernel[i] /= sum
+	}
+
+	filtered := make([]float64, len(samples))
+	last := len(samples) - 1
+	for i := range samples {
+		var acc float64
+		for k := 0; k < taps; k++ {
+			index := i + k - mid
+			if index < 0 {
+				index = 0
+			} else if index > last {
+				index = last
+			}
+
+			acc += samples[index] * kernel[k]
+		}
+
+		filtered[i] = acc
+	}
+
+	return filtered
 }
