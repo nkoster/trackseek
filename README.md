@@ -9,8 +9,10 @@ The idea is simple:
 - take a short sample
 - try to find the right track back
 
-Right now this is a local CLI tool.
-Later this can grow into a REST service.
+Right now this is both:
+
+- a local CLI tool
+- a small HTTP server with a match endpoint
 
 # What it does
 
@@ -19,6 +21,9 @@ Later this can grow into a REST service.
 - builds fingerprint hashes
 - stores fingerprints in SQLite
 - matches a sample against stored tracks
+- serves static files from `./static`
+- accepts uploaded audio samples over HTTP
+- returns match results as SSE with JSON data
 
 # Project goal
 
@@ -72,6 +77,34 @@ Or run directly:
 go run .
 ```
 
+# Configuration
+
+## `.env`
+
+At startup, trackseek tries to load a local `.env` file.
+
+Right now this is used for the SQLite database path.
+
+Example:
+
+```env
+TRACKSEEK_DB_PATH=./fingerprints.sqlite
+```
+
+Or for another file:
+
+```env
+TRACKSEEK_DB_PATH=./fingerprints-first.sqlite
+```
+
+If `.env` is missing, trackseek falls back to:
+
+```text
+fingerprints.sqlite
+```
+
+At startup, trackseek prints which SQLite file it is using.
+
 # Usage
 
 ## Index a track
@@ -109,6 +142,26 @@ With early stop for clear matches:
 ./trackseek match --min-score=80 --threshold=280 ./sample.mp3
 ```
 
+## Start the HTTP server
+
+Basic:
+
+```bash
+./trackseek serve
+```
+
+With a custom address:
+
+```bash
+./trackseek serve --addr :8081
+```
+
+When the server starts:
+
+- it serves files from `./static`
+- `GET /` returns `static/index.html` when present
+- `POST /match` accepts an uploaded sample file
+
 # Matching flags
 
 ## `--min-score`
@@ -138,6 +191,72 @@ If this happens, the output shows:
 
 That means the match was accepted early.
 It does **not** mean the shown score is the full final score.
+
+# HTTP API
+
+## Static files
+
+The server uses the `static/` directory.
+
+This is intended for static HTML now,
+and later for a React bundle.
+
+Main route:
+
+- `GET /`
+
+## `POST /match`
+
+This route accepts a multipart form upload.
+
+Form fields:
+
+- `sample`
+- `minScore` optional
+- `threshold` optional
+
+The `sample` field should contain a `.wav` or `.mp3` file.
+
+Example with `curl`:
+
+```bash
+curl -N \
+  -F "sample=@./match-test.mp3" \
+  -F "minScore=80" \
+  -F "threshold=280" \
+  http://localhost:8080/match
+```
+
+## SSE response
+
+The route returns:
+
+```text
+Content-Type: text/event-stream
+```
+
+It sends one SSE event named `match`.
+
+Example successful response:
+
+```text
+event: match
+data: {"matched":true,"trackId":17,"title":"Time doesnt exist","artist":"Nortsch","path":"./nortsch-time.mp3","score":289,"offsetMs":69474}
+```
+
+Example no-match response:
+
+```text
+event: match
+data: {"matched":false}
+```
+
+Example error response:
+
+```text
+event: match
+data: {"error":"missing form file field 'sample'"}
+```
 
 # Example flow
 
@@ -182,15 +301,38 @@ Or with early stop:
 best match: track_id=17 title="Time doesnt exist" artist="Nortsch" path=./nortsch-time.mp3 [early stopped] offset_ms=69474
 ```
 
+## 4. Test the HTTP endpoint
+
+Start the server:
+
+```bash
+./trackseek serve
+```
+
+Then call the match endpoint:
+
+```bash
+curl -N \
+  -F "sample=@./match-test.mp3" \
+  -F "minScore=80" \
+  -F "threshold=280" \
+  http://localhost:8080/match
+```
+
+There is also an IDE-friendly request file:
+
+```text
+api-test/match.http
+```
+
 # Notes
 
 - `.wav` and `.mp3` are supported
 - this is a prototype, not a final production matcher
 - the schema code may recreate old tables when the schema changes
+- the HTTP match endpoint returns SSE with JSON payload data
 
 # Ideas
 
-- REST API
-- upload endpoint
 - better performance for large databases
 - make scalable
