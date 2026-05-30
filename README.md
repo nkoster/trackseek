@@ -83,7 +83,7 @@ go run .
 
 At startup, trackseek tries to load a local `.env` file.
 
-Right now this is used for the SQLite database path.
+Right now this is used for the SQLite database path and target sample rate.
 
 Without an override, the fallback database path is relative:
 
@@ -94,6 +94,7 @@ Example:
 
 ```env
 TRACKSEEK_DB_PATH=/home/niels/db/fingerprints.sqlite
+TRACKSEEK_TARGET_SAMPLE_RATE=22050
 ```
 
 If `.env` is missing, trackseek falls back to:
@@ -105,6 +106,9 @@ fingerprints.sqlite
 Using `.env` can make the database location explicit and stable.
 That is useful when you want the DB file to stay in a fixed place,
 regardless of how or from where you start the program.
+
+You can also set `TRACKSEEK_TARGET_SAMPLE_RATE`.
+This keeps resampling configurable so you can trade off fingerprint density, DB size, and match speed.
 
 At startup, trackseek prints which SQLite file it is using.
 
@@ -136,13 +140,13 @@ Basic:
 With a minimum accepted score:
 
 ```bash
-./trackseek match --min-score=400 ./sample.mp3
+./trackseek match --min-score=100 ./sample.mp3
 ```
 
 With early stop for clear matches:
 
 ```bash
-./trackseek match --min-score=400 --threshold=1100 ./sample.mp3
+./trackseek match --min-score=100 --threshold=600 ./sample.mp3
 ```
 
 ## Start the HTTP server
@@ -183,12 +187,12 @@ Offsets are grouped in 100 ms buckets. This makes nearby hits count together.
 
 This is the minimum score needed to accept a match.
 
-`400` is a good starting point.
+`100` is a good starting point.
 
 Example:
 
 - if best score is `157`
-- and `--min-score=400`
+- and `--min-score=100`
 - then result is `no matching track found`
 
 ## `--threshold`
@@ -200,7 +204,7 @@ the matcher stops early and returns that result.
 
 This is useful when you want to save time and resources.
 
-`1100` is a good starting point.
+`600` is a good starting point.
 
 If this happens, the output shows:
 
@@ -247,8 +251,8 @@ Example with `curl`:
 ```bash
 curl -N \
   -F "sample=@./match-test.mp3" \
-  -F "minScore=400" \
-  -F "threshold=1100" \
+  -F "minScore=100" \
+  -F "threshold=600" \
   http://localhost:8080/match
 ```
 
@@ -269,7 +273,7 @@ Example successful response:
 
 ```text
 event: match
-data: {"matched":true,"trackId":17,"title":"Time doesnt exist","artist":"Nortsch","path":"./nortsch-time.mp3","score":289,"offsetMs":69474}
+data: {"matched":true,"trackId":17,"title":"Time doesnt exist","artist":"Nortsch","path":"./nortsch-time.mp3","score":644,"offsetMs":69474}
 ```
 
 Example no-match response:
@@ -311,8 +315,8 @@ done
 ## 2. Test with a sample
 
 ```bash
-./trackseek match --min-score=400 --threshold=1100 ./match-test.mp3
-./trackseek match --min-score=400 --threshold=1100 ./match-test-fail.mp3
+./trackseek match --min-score=100 --threshold=600 ./match-test.mp3
+./trackseek match --min-score=100 --threshold=600 ./match-test-fail.mp3
 ```
 
 ## 3. Read the result
@@ -342,8 +346,8 @@ Then call the match endpoint:
 ```bash
 curl -N \
   -F "sample=@./match-test.mp3" \
-  -F "minScore=400" \
-  -F "threshold=1100" \
+  -F "minScore=100" \
+  -F "threshold=600" \
   http://localhost:8080/match
 ```
 

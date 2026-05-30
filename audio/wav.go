@@ -4,25 +4,64 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/go-audio/wav"
 	"github.com/hajimehoshi/go-mp3"
 )
 
+const defaultTargetSampleRate = 44100
+
 func ReadMono(path string) ([]float64, int, error) {
 	ext := strings.ToLower(filepath.Ext(path))
+	targetSampleRate, err := getTargetSampleRate()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var (
+		samples    []float64
+		sampleRate int
+		readErr    error
+	)
 
 	switch ext {
 	case ".wav":
-		return readWAVMono(path)
+		samples, sampleRate, readErr = readWAVMono(path)
 	case ".mp3":
-		return readMP3Mono(path)
+		samples, sampleRate, readErr = readMP3Mono(path)
 	default:
 		return nil, 0, fmt.Errorf("unsupported audio format: %s", ext)
 	}
+
+	if readErr != nil {
+		return nil, 0, readErr
+	}
+
+	resampled, err := resampleMono(samples, sampleRate, targetSampleRate)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return resampled, targetSampleRate, nil
+}
+
+func getTargetSampleRate() (int, error) {
+	value := strings.TrimSpace(os.Getenv("TRACKSEEK_TARGET_SAMPLE_RATE"))
+	if value == "" {
+		return defaultTargetSampleRate, nil
+	}
+
+	rate, err := strconv.Atoi(value)
+	if err != nil || rate <= 0 {
+		return 0, fmt.Errorf("invalid TRACKSEEK_TARGET_SAMPLE_RATE: %q", value)
+	}
+
+	return rate, nil
 }
 
 func readWAVMono(path string) ([]float64, int, error) {
@@ -106,4 +145,49 @@ func readMP3Mono(path string) ([]float64, int, error) {
 	}
 
 	return samples, decoder.SampleRate(), nil
+}
+
+func resampleMono(samples []float64, inputRate int, outputRate int) ([]float64, error) {
+	if inputRate <= 0 || outputRate <= 0 {
+		return nil, fmt.Errorf("invalid sample rate")
+	}
+
+	if len(samples) == 0 {
+		return nil, fmt.Errorf("empty audio buffer")
+	}
+
+	if inputRate == outputRate {
+		copied := append([]float64(nil), samples...)
+		return copied, nil
+	}
+
+	outputLen := int(math.Round(float64(len(samples)) * float64(outputRate) / float64(inputRate)))
+	if outputLen < 1 {
+		outputLen = 1
+	}
+
+	resampled := make([]float64, outputLen)
+	if outputLen == 1 {
+		resampled[0] = samples[0]
+		return resampled, nil
+	}
+
+	last := len(samples) - 1
+	for i := 0; i < outputLen; i++ {
+		position := float64(i) * float64(inputRate) / float64(outputRate)
+		left := int(math.Floor(position))
+		if left < 0 {
+			left = 0
+		}
+		if left >= last {
+			resampled[i] = samples[last]
+			continue
+		}
+
+		right := left + 1
+		frac := position - float64(left)
+		resampled[i] = samples[left]*(1-frac) + samples[right]*frac
+	}
+
+	return resampled, nil
 }
