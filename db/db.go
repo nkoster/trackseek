@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -15,7 +16,7 @@ var DB *sql.DB
 func InitDB() error {
 	var err error
 
-	DB, err = sql.Open("sqlite3", dbPath)
+	DB, err = sql.Open("sqlite3", getDBPath())
 	if err != nil {
 		return err
 	}
@@ -25,6 +26,18 @@ func InitDB() error {
 	}
 
 	return createTables()
+}
+
+func CurrentDBPath() string {
+	return getDBPath()
+}
+
+func getDBPath() string {
+	if value := strings.TrimSpace(os.Getenv("TRACKSEEK_DB_PATH")); value != "" {
+		return value
+	}
+
+	return dbPath
 }
 
 func Close() error {
