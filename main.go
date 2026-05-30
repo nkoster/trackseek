@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"trackseek/audio"
 	"trackseek/db"
@@ -71,7 +72,13 @@ func main() {
 		log.Fatalf("unknown command %q, expected index, match or serve", command)
 	}
 
-	if err := loadDotEnv(".env"); err != nil {
+	execPath, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dotEnvPath := filepath.Join(filepath.Dir(execPath), ".env")
+	if err := loadDotEnv(dotEnvPath); err != nil {
 		log.Fatal(err)
 	}
 
