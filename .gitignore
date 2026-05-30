@@ -1,0 +1,7 @@
+example
+tracks
+.env
+**.sqlite
+.idea
+**.mp3
+trackseek
