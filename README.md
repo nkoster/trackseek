@@ -136,6 +136,19 @@ This will:
 Re-indexing the same file path is safe.
 The existing track entry is reused instead of creating a duplicate row.
 
+## List indexed tracks
+
+```bash
+./trackseek list
+```
+
+Example output:
+
+```text
+1  Nortsch - Time doesnt exist [./song.mp3]
+2  Unknown Artist - Intro [./Intro.wav]
+```
+
 ## Match a sample
 
 Basic:

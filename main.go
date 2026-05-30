@@ -18,7 +18,7 @@ func main() {
 	log.SetFlags(0)
 
 	if len(os.Args) < 2 {
-		log.Fatalf("usage: %s <index|match|serve> ...", os.Args[0])
+		log.Fatalf("usage: %s <index|list|match|serve> ...", os.Args[0])
 	}
 
 	command := os.Args[1]
@@ -61,6 +61,15 @@ func main() {
 		}
 
 		audioPath = matchFlags.Arg(0)
+	case "list":
+		listFlags := flag.NewFlagSet("list", flag.ExitOnError)
+		if err := listFlags.Parse(os.Args[2:]); err != nil {
+			log.Fatal(err)
+		}
+
+		if listFlags.NArg() > 0 {
+			log.Fatalf("usage: %s list", os.Args[0])
+		}
 	case "serve":
 		serveFlags := flag.NewFlagSet("serve", flag.ExitOnError)
 		serveFlags.StringVar(&addr, "addr", ":8080", "http listen address")
@@ -69,7 +78,7 @@ func main() {
 			log.Fatal(err)
 		}
 	default:
-		log.Fatalf("unknown command %q, expected index, match or serve", command)
+		log.Fatalf("unknown command %q, expected index, list, match or serve", command)
 	}
 
 	execPath, err := os.Executable()
@@ -131,6 +140,15 @@ func main() {
 		}
 
 		fmt.Printf("stored %d hashes for track_id=%d\n", count, trackID)
+	case "list":
+		tracks, err := models.ListTracks()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for i, track := range tracks {
+			fmt.Printf("%d  %s - %s [%s]\n", i+1, track.Artist.Name, track.Title, track.Path)
+		}
 	case "match":
 		result, err := fingerprint.MatchAudioFile(db.DB, audioPath, minScore, threshold)
 		if err != nil {

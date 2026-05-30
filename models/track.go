@@ -75,3 +75,35 @@ func GetTrackByID(id int64) (*Track, error) {
 
 	return &track, nil
 }
+
+func ListTracks() ([]Track, error) {
+	rows, err := db.DB.Query(`
+		SELECT tracks.id, tracks.path, tracks.title, tracks.artist_id, artists.name
+		FROM tracks
+		JOIN artists ON artists.id = tracks.artist_id
+		ORDER BY artists.name ASC, tracks.title ASC, tracks.path ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tracks []Track
+	for rows.Next() {
+		var track Track
+		var artistName string
+
+		if err := rows.Scan(&track.ID, &track.Path, &track.Title, &track.ArtistID, &artistName); err != nil {
+			return nil, err
+		}
+
+		track.Artist = &Artist{ID: track.ArtistID, Name: artistName}
+		tracks = append(tracks, track)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tracks, nil
+}
