@@ -96,8 +96,6 @@ Example:
 TRACKSEEK_DB_PATH=$HOME/db/fingerprints.sqlite
 ```
 
-```
-
 If `.env` is missing, trackseek falls back to:
 
 ```text
