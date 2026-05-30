@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	windowSize    = 4096
-	hopSize       = 2048
-	maxPeaksFrame = 5
-	fanout        = 5
+	windowSize     = 4096
+	hopSize        = 2048
+	maxPeaksFrame  = 5
+	fanout         = 5
+	offsetBucketMS = 100
 )
 
 var ErrNoMatch = errors.New("no matching track found")
@@ -149,15 +150,16 @@ func MatchFingerprints(db *sql.DB, sampleRate int, peaks []models.Peak, threshol
 			}
 
 			offsetMS := dbTimeMS - fingerprint.TimeMS
+			offsetBucket := bucketOffsetMS(offsetMS)
 			if _, ok := scores[trackID]; !ok {
 				scores[trackID] = make(map[int]int)
 			}
 
-			scores[trackID][offsetMS]++
-			score := scores[trackID][offsetMS]
+			scores[trackID][offsetBucket]++
+			score := scores[trackID][offsetBucket]
 
 			if !found || score > best.Score {
-				best = MatchResult{TrackID: trackID, Score: score, OffsetMS: offsetMS}
+				best = MatchResult{TrackID: trackID, Score: score, OffsetMS: offsetBucket * offsetBucketMS}
 				found = true
 
 				if threshold > 0 && score >= threshold {
@@ -297,15 +299,16 @@ func MatchFingerprintsInMemory(index *InMemoryIndex, sampleRate int, peaks []mod
 		hits := index.HitsByHash[fingerprint.Hash]
 		for _, hit := range hits {
 			offsetMS := hit.TimeMS - fingerprint.TimeMS
+			offsetBucket := bucketOffsetMS(offsetMS)
 			if _, ok := scores[hit.TrackID]; !ok {
 				scores[hit.TrackID] = make(map[int]int)
 			}
 
-			scores[hit.TrackID][offsetMS]++
-			score := scores[hit.TrackID][offsetMS]
+			scores[hit.TrackID][offsetBucket]++
+			score := scores[hit.TrackID][offsetBucket]
 
 			if !found || score > best.Score {
-				best = MatchResult{TrackID: hit.TrackID, Score: score, OffsetMS: offsetMS}
+				best = MatchResult{TrackID: hit.TrackID, Score: score, OffsetMS: offsetBucket * offsetBucketMS}
 				found = true
 
 				if threshold > 0 && score >= threshold {
@@ -434,4 +437,12 @@ func makeHash(freq1, freq2, deltaFrames int) int64 {
 func frameToMs(frame int, sampleRate int) int {
 	sampleIndex := frame * hopSize
 	return int(float64(sampleIndex) / float64(sampleRate) * 1000.0)
+}
+
+func bucketOffsetMS(offsetMS int) int {
+	if offsetMS >= 0 {
+		return offsetMS / offsetBucketMS
+	}
+
+	return -((-offsetMS + offsetBucketMS - 1) / offsetBucketMS)
 }
