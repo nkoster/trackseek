@@ -43,6 +43,23 @@ type AudioMatch struct {
 	EarlyStopped bool
 }
 
+type IndexedHit struct {
+	TrackID int64
+	TimeMS  int
+}
+
+type IndexedTrack struct {
+	ID     int64
+	Title  string
+	Artist string
+	Path   string
+}
+
+type InMemoryIndex struct {
+	HitsByHash map[int64][]IndexedHit
+	Tracks     map[int64]IndexedTrack
+}
+
 func ExtractPeaks(samples []float64) []models.Peak {
 	fft := fourier.NewFFT(windowSize)
 
@@ -201,6 +218,141 @@ func MatchAudioFile(db *sql.DB, audioPath string, minScore int, threshold int) (
 		TrackID:      result.TrackID,
 		Title:        track.Title,
 		Artist:       artistName,
+		Path:         track.Path,
+		Score:        result.Score,
+		OffsetMS:     result.OffsetMS,
+		EarlyStopped: result.EarlyStopped,
+	}, nil
+}
+
+func BuildInMemoryIndex(db *sql.DB) (*InMemoryIndex, error) {
+	rows, err := db.Query(`
+		SELECT hash, track_id, time_ms
+		FROM fingerprints
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	index := &InMemoryIndex{
+		HitsByHash: make(map[int64][]IndexedHit),
+		Tracks:     make(map[int64]IndexedTrack),
+	}
+
+	for rows.Next() {
+		var hash int64
+		var trackID int64
+		var timeMS int
+
+		if err := rows.Scan(&hash, &trackID, &timeMS); err != nil {
+			return nil, err
+		}
+
+		index.HitsByHash[hash] = append(index.HitsByHash[hash], IndexedHit{TrackID: trackID, TimeMS: timeMS})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	trackRows, err := db.Query(`
+		SELECT tracks.id, tracks.title, artists.name, tracks.path
+		FROM tracks
+		JOIN artists ON artists.id = tracks.artist_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer trackRows.Close()
+
+	for trackRows.Next() {
+		var track IndexedTrack
+
+		if err := trackRows.Scan(&track.ID, &track.Title, &track.Artist, &track.Path); err != nil {
+			return nil, err
+		}
+
+		index.Tracks[track.ID] = track
+	}
+
+	if err := trackRows.Err(); err != nil {
+		return nil, err
+	}
+
+	return index, nil
+}
+
+func MatchFingerprintsInMemory(index *InMemoryIndex, sampleRate int, peaks []models.Peak, threshold int) (*MatchResult, error) {
+	fingerprints := fingerprintsFromPeaks(sampleRate, peaks)
+	if len(fingerprints) == 0 {
+		return nil, ErrNoMatch
+	}
+
+	scores := make(map[int64]map[int]int)
+	best := MatchResult{}
+	found := false
+
+	for _, fingerprint := range fingerprints {
+		hits := index.HitsByHash[fingerprint.Hash]
+		for _, hit := range hits {
+			offsetMS := hit.TimeMS - fingerprint.TimeMS
+			if _, ok := scores[hit.TrackID]; !ok {
+				scores[hit.TrackID] = make(map[int]int)
+			}
+
+			scores[hit.TrackID][offsetMS]++
+			score := scores[hit.TrackID][offsetMS]
+
+			if !found || score > best.Score {
+				best = MatchResult{TrackID: hit.TrackID, Score: score, OffsetMS: offsetMS}
+				found = true
+
+				if threshold > 0 && score >= threshold {
+					best.EarlyStopped = true
+					return &best, nil
+				}
+			}
+		}
+	}
+
+	if !found {
+		return nil, ErrNoMatch
+	}
+
+	return &best, nil
+}
+
+func MatchAudioFileInMemory(index *InMemoryIndex, audioPath string, minScore int, threshold int) (*AudioMatch, error) {
+	samples, sampleRate, err := audio.ReadMono(audioPath)
+	if err != nil {
+		return nil, err
+	}
+
+	peaks := ExtractPeaks(samples)
+	result, err := MatchFingerprintsInMemory(index, sampleRate, peaks, threshold)
+	if err != nil {
+		if errors.Is(err, ErrNoMatch) {
+			return &AudioMatch{Matched: false}, nil
+		}
+
+		return nil, err
+	}
+
+	if result.Score < minScore {
+		return &AudioMatch{Matched: false, Score: result.Score, OffsetMS: result.OffsetMS}, nil
+	}
+
+	track, ok := index.Tracks[result.TrackID]
+	if !ok {
+		return nil, sql.ErrNoRows
+	}
+
+	return &AudioMatch{
+		Matched:      true,
+		TrackID:      result.TrackID,
+		Title:        track.Title,
+		Artist:       track.Artist,
 		Path:         track.Path,
 		Score:        result.Score,
 		OffsetMS:     result.OffsetMS,

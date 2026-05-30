@@ -24,6 +24,7 @@ func main() {
 
 	var audioPath string
 	var addr string
+	var preload bool
 	var title string
 	var artist string
 	var minScore int
@@ -62,6 +63,7 @@ func main() {
 	case "serve":
 		serveFlags := flag.NewFlagSet("serve", flag.ExitOnError)
 		serveFlags.StringVar(&addr, "addr", ":8080", "http listen address")
+		serveFlags.BoolVar(&preload, "preload", false, "preload fingerprints into an in-memory index for faster HTTP matching")
 		if err := serveFlags.Parse(os.Args[2:]); err != nil {
 			log.Fatal(err)
 		}
@@ -81,7 +83,7 @@ func main() {
 	defer db.Close()
 
 	if command == "serve" {
-		if err := server.Run(addr); err != nil {
+		if err := server.Run(addr, preload); err != nil {
 			log.Fatal(err)
 		}
 		return

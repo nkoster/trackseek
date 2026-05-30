@@ -2,7 +2,6 @@ package routes
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,28 +28,30 @@ type matchResponse struct {
 	Error        string `json:"error,omitempty"`
 }
 
-func matchSample(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", http.MethodPost)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
+func matchSample(index *fingerprint.InMemoryIndex) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.Header().Set("Allow", http.MethodPost)
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+			return
+		}
+
+		response, statusCode := buildMatchResponse(r, index)
+		writeSSE(w, flusher, "match", response, statusCode)
 	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
-		return
-	}
-
-	response, statusCode := buildMatchResponse(r)
-	writeSSE(w, flusher, "match", response, statusCode)
 }
 
-func buildMatchResponse(r *http.Request) (matchResponse, int) {
+func buildMatchResponse(r *http.Request, index *fingerprint.InMemoryIndex) (matchResponse, int) {
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 		return matchResponse{Error: "invalid multipart form upload"}, http.StatusBadRequest
 	}
@@ -77,12 +78,13 @@ func buildMatchResponse(r *http.Request) (matchResponse, int) {
 		return matchResponse{Error: "invalid threshold"}, http.StatusBadRequest
 	}
 
-	result, err := fingerprint.MatchAudioFile(db.DB, tempPath, minScore, threshold)
+	var result *fingerprint.AudioMatch
+	if index != nil {
+		result, err = fingerprint.MatchAudioFileInMemory(index, tempPath, minScore, threshold)
+	} else {
+		result, err = fingerprint.MatchAudioFile(db.DB, tempPath, minScore, threshold)
+	}
 	if err != nil {
-		if errors.Is(err, fingerprint.ErrNoMatch) {
-			return matchResponse{Matched: false}, http.StatusOK
-		}
-
 		return matchResponse{Error: err.Error()}, http.StatusInternalServerError
 	}
 

@@ -1,8 +1,12 @@
 package routes
 
-import "net/http"
+import (
+	"net/http"
 
-func Register(mux *http.ServeMux, staticDir string) {
-	mux.Handle("/match", http.HandlerFunc(matchSample))
+	"trackseek/fingerprint"
+)
+
+func Register(mux *http.ServeMux, staticDir string, index *fingerprint.InMemoryIndex) {
+	mux.Handle("/match", http.HandlerFunc(matchSample(index)))
 	mux.Handle("/", staticHandler(staticDir))
 }

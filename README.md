@@ -165,6 +165,12 @@ With a custom address:
 ./trackseek serve --addr :8081
 ```
 
+With in-memory fingerprint preload:
+
+```bash
+./trackseek serve --preload
+```
+
 When the server starts:
 
 - it serves files from `./static`
@@ -172,6 +178,8 @@ When the server starts:
 - asset files like `.js`, `.css`, images, and `/assets/...` are served directly
 - unknown frontend routes fall back to `static/index.html`
 - `POST /match` accepts an uploaded sample file
+- with `--preload`, fingerprint hashes are loaded into an in-memory index at startup
+- with `--preload`, `/match` uses the in-memory index instead of SQL fingerprint lookups
 
 # Matching flags
 
@@ -244,6 +252,9 @@ curl -N \
   -F "threshold=280" \
   http://localhost:8080/match
 ```
+
+If the server was started with `--preload`, this route matches against the preloaded in-memory fingerprint index.
+Otherwise it uses the SQLite fingerprint table during the request.
 
 ## SSE response
 
