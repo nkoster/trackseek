@@ -93,13 +93,9 @@ Without an override, the fallback database path is relative:
 Example:
 
 ```env
-TRACKSEEK_DB_PATH=./fingerprints.sqlite
+TRACKSEEK_DB_PATH=$HOME/db/fingerprints.sqlite
 ```
 
-Or for another file:
-
-```env
-TRACKSEEK_DB_PATH=./fingerprints-first.sqlite
 ```
 
 If `.env` is missing, trackseek falls back to:
@@ -108,7 +104,7 @@ If `.env` is missing, trackseek falls back to:
 fingerprints.sqlite
 ```
 
-Using `.env` makes the database location explicit and stable.
+Using `.env` can make the database location explicit and stable.
 That is useful when you want the DB file to stay in a fixed place,
 regardless of how or from where you start the program.
 
