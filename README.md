@@ -85,6 +85,11 @@ At startup, trackseek tries to load a local `.env` file.
 
 Right now this is used for the SQLite database path.
 
+Without an override, the fallback database path is relative:
+
+- `fingerprints.sqlite`
+- this is resolved relative to the current working directory
+
 Example:
 
 ```env
@@ -102,6 +107,10 @@ If `.env` is missing, trackseek falls back to:
 ```text
 fingerprints.sqlite
 ```
+
+Using `.env` makes the database location explicit and stable.
+That is useful when you want the DB file to stay in a fixed place,
+regardless of how or from where you start the program.
 
 At startup, trackseek prints which SQLite file it is using.
 
