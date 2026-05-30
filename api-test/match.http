@@ -1,0 +1,34 @@
+GET http://localhost:8080/
+
+##########
+
+POST http://localhost:8080/match
+Content-Type: multipart/form-data; boundary=TrackseekBoundary
+Accept: text/event-stream
+
+--TrackseekBoundary
+Content-Disposition: form-data; name="minScore"
+
+80
+--TrackseekBoundary
+Content-Disposition: form-data; name="threshold"
+
+280
+--TrackseekBoundary
+Content-Disposition: form-data; name="sample"; filename="match-test.mp3"
+Content-Type: audio/mpeg
+
+< ../match-test.mp3
+--TrackseekBoundary--
+
+##########
+
+POST http://localhost:8080/match
+Content-Type: multipart/form-data; boundary=TrackseekBoundary
+Accept: text/event-stream
+
+--TrackseekBoundary
+Content-Disposition: form-data; name="minScore"
+
+80
+--TrackseekBoundary--

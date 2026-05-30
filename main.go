@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -11,16 +10,20 @@ import (
 	"trackseek/db"
 	"trackseek/fingerprint"
 	"trackseek/models"
+	"trackseek/server"
 )
 
 func main() {
+	log.SetFlags(0)
+
 	if len(os.Args) < 2 {
-		log.Fatalf("usage: %s <index|match> ...", os.Args[0])
+		log.Fatalf("usage: %s <index|match|serve> ...", os.Args[0])
 	}
 
 	command := os.Args[1]
 
 	var audioPath string
+	var addr string
 	var title string
 	var artist string
 	var minScore int
@@ -56,27 +59,44 @@ func main() {
 		}
 
 		audioPath = matchFlags.Arg(0)
+	case "serve":
+		serveFlags := flag.NewFlagSet("serve", flag.ExitOnError)
+		serveFlags.StringVar(&addr, "addr", ":8080", "http listen address")
+		if err := serveFlags.Parse(os.Args[2:]); err != nil {
+			log.Fatal(err)
+		}
 	default:
-		log.Fatalf("unknown command %q, expected index or match", command)
+		log.Fatalf("unknown command %q, expected index, match or serve", command)
 	}
+
+	if err := loadDotEnv(".env"); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("using sqlite database: %s", db.CurrentDBPath())
 
 	if err := db.InitDB(); err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	samples, sampleRate, err := audio.ReadMono(audioPath)
-	if err != nil {
-		log.Fatal(err)
+	if command == "serve" {
+		if err := server.Run(addr); err != nil {
+			log.Fatal(err)
+		}
+		return
 	}
-
-	fmt.Printf("loaded %d samples, sample rate %d Hz\n", len(samples), sampleRate)
-
-	peaks := fingerprint.ExtractPeaks(samples)
-	fmt.Printf("found %d peaks\n", len(peaks))
 
 	switch command {
 	case "index":
+		samples, sampleRate, err := readAudio(audioPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		peaks := fingerprint.ExtractPeaks(samples)
+		fmt.Printf("found %d peaks\n", len(peaks))
+
 		trackID, err := (models.Track{Path: audioPath, Title: title, Artist: &models.Artist{Name: artist}}).Save()
 		if err != nil {
 			log.Fatal(err)
@@ -89,31 +109,37 @@ func main() {
 
 		fmt.Printf("stored %d hashes for track_id=%d\n", count, trackID)
 	case "match":
-		result, err := fingerprint.MatchFingerprints(db.DB, sampleRate, peaks, threshold)
+		result, err := fingerprint.MatchAudioFile(db.DB, audioPath, minScore, threshold)
 		if err != nil {
-			if errors.Is(err, fingerprint.ErrNoMatch) {
-				fmt.Println("no matching track found")
+			log.Fatal(err)
+		}
+
+		if !result.Matched {
+			if result.Score > 0 && minScore > 0 {
+				fmt.Printf("no matching track found (best score %d below min-score %d)\n", result.Score, minScore)
 				return
 			}
 
-			log.Fatal(err)
-		}
-
-		if result.Score < minScore {
-			fmt.Printf("no matching track found (best score %d below min-score %d)\n", result.Score, minScore)
+			fmt.Println("no matching track found")
 			return
-		}
-
-		track, err := models.GetTrackByID(result.TrackID)
-		if err != nil {
-			log.Fatal(err)
 		}
 
 		if result.EarlyStopped {
-			fmt.Printf("best match: track_id=%d title=%q artist=%q path=%s [early stopped] offset_ms=%d\n", result.TrackID, track.Title, track.Artist.Name, track.Path, result.OffsetMS)
+			fmt.Printf("best match: track_id=%d title=%q artist=%q path=%s [early stopped] offset_ms=%d\n", result.TrackID, result.Title, result.Artist, result.Path, result.OffsetMS)
 			return
 		}
 
-		fmt.Printf("best match: track_id=%d title=%q artist=%q path=%s score=%d offset_ms=%d\n", result.TrackID, track.Title, track.Artist.Name, track.Path, result.Score, result.OffsetMS)
+		fmt.Printf("best match: track_id=%d title=%q artist=%q path=%s score=%d offset_ms=%d\n", result.TrackID, result.Title, result.Artist, result.Path, result.Score, result.OffsetMS)
 	}
+}
+
+func readAudio(audioPath string) ([]float64, int, error) {
+	samples, sampleRate, err := audio.ReadMono(audioPath)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	fmt.Printf("loaded %d samples, sample rate %d Hz\n", len(samples), sampleRate)
+
+	return samples, sampleRate, nil
 }

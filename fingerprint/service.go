@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 
+	"trackseek/audio"
 	"trackseek/models"
 
 	"gonum.org/v1/gonum/dsp/fourier"
@@ -26,6 +27,17 @@ type Fingerprint struct {
 
 type MatchResult struct {
 	TrackID      int64
+	Score        int
+	OffsetMS     int
+	EarlyStopped bool
+}
+
+type AudioMatch struct {
+	Matched      bool
+	TrackID      int64
+	Title        string
+	Artist       string
+	Path         string
 	Score        int
 	OffsetMS     int
 	EarlyStopped bool
@@ -152,6 +164,48 @@ func MatchFingerprints(db *sql.DB, sampleRate int, peaks []models.Peak, threshol
 	}
 
 	return &best, nil
+}
+
+func MatchAudioFile(db *sql.DB, audioPath string, minScore int, threshold int) (*AudioMatch, error) {
+	samples, sampleRate, err := audio.ReadMono(audioPath)
+	if err != nil {
+		return nil, err
+	}
+
+	peaks := ExtractPeaks(samples)
+	result, err := MatchFingerprints(db, sampleRate, peaks, threshold)
+	if err != nil {
+		if errors.Is(err, ErrNoMatch) {
+			return &AudioMatch{Matched: false}, nil
+		}
+
+		return nil, err
+	}
+
+	if result.Score < minScore {
+		return &AudioMatch{Matched: false, Score: result.Score, OffsetMS: result.OffsetMS}, nil
+	}
+
+	track, err := models.GetTrackByID(result.TrackID)
+	if err != nil {
+		return nil, err
+	}
+
+	artistName := ""
+	if track.Artist != nil {
+		artistName = track.Artist.Name
+	}
+
+	return &AudioMatch{
+		Matched:      true,
+		TrackID:      result.TrackID,
+		Title:        track.Title,
+		Artist:       artistName,
+		Path:         track.Path,
+		Score:        result.Score,
+		OffsetMS:     result.OffsetMS,
+		EarlyStopped: result.EarlyStopped,
+	}, nil
 }
 
 func topPeaks(coeffs []complex128, timeFrame int, maxPeaks int) []models.Peak {
