@@ -160,6 +160,8 @@ When the server starts:
 
 - it serves files from `./static`
 - `GET /` returns `static/index.html` when present
+- asset files like `.js`, `.css`, images, and `/assets/...` are served directly
+- unknown frontend routes fall back to `static/index.html`
 - `POST /match` accepts an uploaded sample file
 
 # Matching flags
@@ -200,6 +202,13 @@ The server uses the `static/` directory.
 
 This is intended for static HTML now,
 and later for a React bundle.
+
+It can also work as a small SPA server:
+
+- existing asset files are served directly
+- unknown routes fall back to `index.html`
+
+This is useful for React Router or other client-side routing.
 
 Main route:
 
