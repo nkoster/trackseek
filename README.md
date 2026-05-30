@@ -18,7 +18,7 @@ Right now this is both:
 
 - reads audio from `.wav` and `.mp3`
 - extracts peaks from the spectrum
-- builds fingerprint hashes
+- builds fingerprint hashes from anchor-target peak pairs in a small forward target zone
 - stores fingerprints in SQLite
 - matches a sample against stored tracks
 - serves static files from `./static`
