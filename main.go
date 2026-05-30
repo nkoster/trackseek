@@ -146,8 +146,8 @@ func main() {
 			log.Fatal(err)
 		}
 
-		for i, track := range tracks {
-			fmt.Printf("%d  %s - %s [%s]\n", i+1, track.Artist.Name, track.Title, track.Path)
+		for _, track := range tracks {
+			fmt.Printf("%d  %s - %s [%s]\n", track.ID, track.Artist.Name, track.Title, track.Path)
 		}
 	case "match":
 		result, err := fingerprint.MatchAudioFile(db.DB, audioPath, minScore, threshold)
