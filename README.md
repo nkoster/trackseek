@@ -296,6 +296,7 @@ data: {"error":"missing form file field 'sample'"}
 ## 1. Index a few songs
 
 ```bash
+cd tracks
 for file in *.wav *.mp3; do
   base="${file%.*}"
 
@@ -309,7 +310,7 @@ for file in *.wav *.mp3; do
     title="$base"
   fi
   echo "Adding $file ..."
-  ./trackseek index --title="$title" --artist="$artist" "$file"
+  ../trackseek index --title="$title" --artist="$artist" "$file"
 done
 ```
 
