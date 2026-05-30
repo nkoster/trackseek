@@ -44,8 +44,8 @@ func main() {
 		}
 
 		audioPath = indexFlags.Arg(0)
-		if title == "" || artist == "" {
-			log.Fatal("index requires both --title and --artist")
+		if title == "" {
+			log.Fatal("index requires --title")
 		}
 	case "match":
 		matchFlags := flag.NewFlagSet("match", flag.ExitOnError)
@@ -94,6 +94,10 @@ func main() {
 		samples, sampleRate, err := readAudio(audioPath)
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		if artist == "" {
+			artist = "Unknown Artist"
 		}
 
 		peaks := fingerprint.ExtractPeaks(samples)
