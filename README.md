@@ -93,7 +93,7 @@ Without an override, the fallback database path is relative:
 Example:
 
 ```env
-TRACKSEEK_DB_PATH=$HOME/db/fingerprints.sqlite
+TRACKSEEK_DB_PATH=/home/niels/db/fingerprints.sqlite
 ```
 
 If `.env` is missing, trackseek falls back to:
