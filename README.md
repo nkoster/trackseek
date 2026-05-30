@@ -107,10 +107,11 @@ Using `.env` can make the database location explicit and stable.
 That is useful when you want the DB file to stay in a fixed place,
 regardless of how or from where you start the program.
 
+At startup, trackseek prints which SQLite file it is using.
+
 You can also set `TRACKSEEK_TARGET_SAMPLE_RATE`.
 This keeps resampling configurable so you can trade off fingerprint density, DB size, and match speed.
-
-At startup, trackseek prints which SQLite file it is using.
+Without `TRACKSEEK_TARGET_SAMPLE_RATE` the sample rate defaults to 44100.
 
 # Usage
 
@@ -191,7 +192,7 @@ This is the minimum score needed to accept a match.
 
 Example:
 
-- if best score is `157`
+- if best score is `68`
 - and `--min-score=100`
 - then result is `no matching track found`
 
