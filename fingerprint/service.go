@@ -15,7 +15,9 @@ const (
 	windowSize     = 4096
 	hopSize        = 2048
 	maxPeaksFrame  = 5
-	fanout         = 5
+	maxTargets     = 5
+	minDeltaFrames = 1
+	maxDeltaFrames = 30
 	offsetBucketMS = 100
 )
 
@@ -407,23 +409,33 @@ func cmplxAbs(c complex128) float64 {
 }
 
 func fingerprintsFromPeaks(sampleRate int, peaks []models.Peak) []Fingerprint {
-	fingerprints := make([]Fingerprint, 0, len(peaks)*fanout)
+	fingerprints := make([]Fingerprint, 0, len(peaks)*maxTargets)
 
 	for i := 0; i < len(peaks); i++ {
 		anchor := peaks[i]
+		targets := 0
 
-		for j := i + 1; j < len(peaks) && j <= i+fanout; j++ {
+		for j := i + 1; j < len(peaks); j++ {
 			target := peaks[j]
 
 			delta := target.TimeFrame - anchor.TimeFrame
-			if delta <= 0 {
+			if delta < minDeltaFrames {
 				continue
+			}
+
+			if delta > maxDeltaFrames {
+				break
 			}
 
 			fingerprints = append(fingerprints, Fingerprint{
 				Hash:   makeHash(anchor.FreqBin, target.FreqBin, delta),
 				TimeMS: frameToMs(anchor.TimeFrame, sampleRate),
 			})
+
+			targets++
+			if targets >= maxTargets {
+				break
+			}
 		}
 	}
 
