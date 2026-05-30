@@ -13,7 +13,7 @@ Content-Disposition: form-data; name="minScore"
 --TrackseekBoundary
 Content-Disposition: form-data; name="threshold"
 
-280
+9000
 --TrackseekBoundary
 Content-Disposition: form-data; name="sample"; filename="match-test.mp3"
 Content-Type: audio/mpeg
