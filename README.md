@@ -120,7 +120,13 @@ At startup, `trackseek` prints which SQLite file it is using.
 
 You can also set `TRACKSEEK_TARGET_SAMPLE_RATE`.
 This keeps resampling configurable so you can trade off fingerprint density, DB size, and match speed.
+
 Without `TRACKSEEK_TARGET_SAMPLE_RATE` the sample rate defaults to 44100.
+
+When you halve the sample rate from 44100 to 22050, the size of the database will be reduced by roughly half.
+I do not yet know exactly what the best trade-off is.
+
+WARNING: when you change `TRACKSEEK_TARGET_SAMPLE_RATE`, you must fully re-index or rebuild the database!
 
 # Usage
 
