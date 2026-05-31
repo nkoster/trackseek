@@ -389,13 +389,13 @@ A detailed explanation of the indexing phase, matching process, and score calcul
 ![Indexing](images/indexing_1-3.png)
 ![Indexing](images/indexing_4-7.png)
 
-During indexing, Trackseek converts an audio file into a set of compact fingerprints.
+During indexing, trackseek converts an audio file into a set of compact fingerprints.
 
 First, the audio is decoded and converted to mono PCM. The signal is then normalized to a fixed target sample rate so that the same sound produces comparable frequency bins, regardless of the original file format or sample rate.
 
 The audio is split into short overlapping windows. For each window, an FFT is calculated to convert the signal from the time domain into the frequency domain. This produces a spectrogram-like representation: time on one axis, frequency on the other, and magnitude as signal strength.
 
-Trackseek then keeps only the strongest local frequency peaks. These peaks are more stable than raw audio samples and are therefore more suitable for matching noisy or partial audio later.
+trackseek then keeps only the strongest local frequency peaks. These peaks are more stable than raw audio samples and are therefore more suitable for matching noisy or partial audio later.
 
 Each fingerprint is created from a pair of peaks:
 
@@ -420,11 +420,11 @@ So the database does not store the full audio signal. It stores many small finge
 
 Matching uses the same fingerprinting process, but on a shorter query clip.
 
-The query audio is decoded, converted to mono, resampled to the same target sample rate, split into windows, transformed with FFT, and reduced to spectral peaks. Trackseek then creates hashes from anchor/target peak pairs in the query clip.
+The query audio is decoded, converted to mono, resampled to the same target sample rate, split into windows, transformed with FFT, and reduced to spectral peaks. trackseek then creates hashes from anchor/target peak pairs in the query clip.
 
 Each query hash is looked up in the SQLite fingerprint database. A single matching hash is not enough to identify a track, because different songs may share some similar peak pairs. The important part is whether many hashes point to the same track at a consistent time offset.
 
-For every matching hash, Trackseek compares the timestamp from the database with the timestamp from the query clip:
+For every matching hash, trackseek compares the timestamp from the database with the timestamp from the query clip:
 
     offset = db_time_ms - query_time_ms
 
@@ -438,7 +438,7 @@ Example:
 
 All three matches point to the same offset: `41900 ms`. That means the query clip probably starts around `41.9s` into that track.
 
-Trackseek groups offsets into small buckets and counts votes per track and offset bucket. The best match is the track with the strongest concentration of matching hashes at the same offset.
+trackseek groups offsets into small buckets and counts votes per track and offset bucket. The best match is the track with the strongest concentration of matching hashes at the same offset.
 
 In short:
 
@@ -457,7 +457,7 @@ Terminology:
 
 The score is the number of query fingerprints that vote for the same indexed track at the same time offset.
 
-Each query fingerprint produces a hash and a timestamp inside the query clip. When that hash is found in the SQLite database, Trackseek compares the timestamp from the indexed track with the timestamp from the query:
+Each query fingerprint produces a hash and a timestamp inside the query clip. When that hash is found in the SQLite database, trackseek compares the timestamp from the indexed track with the timestamp from the query:
 
     offset = db_time_ms - query_time_ms
 
