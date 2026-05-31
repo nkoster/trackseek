@@ -1,6 +1,6 @@
 # trackseek
 
-`trackseek` is a small Shazam-like lab project in Go.
+`trackseek` is a small [Shazam](https://www.shazam.com/)-like lab project in Go.
 
 The idea is:
 
@@ -13,6 +13,10 @@ Right now this is both:
 
 - a local CLI tool
 - a small HTTP server with a match endpoint
+
+To do:
+
+- Build the front-end (app)
 
 # What it does
 
