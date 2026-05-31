@@ -1,5 +1,6 @@
 example
 tracks
+tmp
 .env
 **.sqlite
 .idea
