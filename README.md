@@ -391,9 +391,9 @@ A detailed explanation of the indexing phase, matching process, and score calcul
 
 During indexing, trackseek converts an audio file into a set of compact fingerprints.
 
-First, the audio is decoded and converted to mono PCM. The signal is then normalized to a fixed target sample rate so that the same sound produces comparable frequency bins, regardless of the original file format or sample rate.
+First, the audio is decoded and converted to mono PCM (Pulse-Code Modulation). The signal is then normalized to a fixed target sample rate so that the same sound produces comparable frequency bins, regardless of the original file format or sample rate.
 
-The audio is split into short overlapping windows. For each window, an FFT is calculated to convert the signal from the time domain into the frequency domain. This produces a spectrogram-like representation: time on one axis, frequency on the other, and magnitude as signal strength.
+The audio is split into short overlapping windows. For each window, an FFT (Fast Fourier Transform) is calculated to convert the signal from the time domain into the frequency domain. This produces a spectrogram-like representation: time on one axis, frequency on the other, and magnitude as signal strength.
 
 trackseek then keeps only the strongest local frequency peaks. These peaks are more stable than raw audio samples and are therefore more suitable for matching noisy or partial audio later.
 
