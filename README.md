@@ -289,6 +289,8 @@ Content-Type: text/event-stream
 
 It sends one SSE event named `match`.
 
+Response data is in JSON.
+
 Example successful response:
 
 ```text
@@ -378,15 +380,96 @@ There is also an IDE-friendly request file:
 api-test/match.http
 ```
 
+# Processing details
+
+## Indexing
+
+![Indexing](images/indexing_1-3.png)
+![Indexing](images/indexing_4-7.png)
+
+During indexing, Trackseek converts an audio file into a set of compact fingerprints.
+
+First, the audio is decoded and converted to mono PCM. The signal is then normalized to a fixed target sample rate so that the same sound produces comparable frequency bins, regardless of the original file format or sample rate.
+
+The audio is split into short overlapping windows. For each window, an FFT is calculated to convert the signal from the time domain into the frequency domain. This produces a spectrogram-like representation: time on one axis, frequency on the other, and magnitude as signal strength.
+
+Trackseek then keeps only the strongest local frequency peaks. These peaks are more stable than raw audio samples and are therefore more suitable for matching noisy or partial audio later.
+
+Each fingerprint is created from a pair of peaks:
+
+$$
+\begin{aligned}
+{\color{green}\mathbf{freq}_1} &= \text{frequency bin of the anchor peak}\\
+{\color{orange}\mathbf{freq}_2} &= \text{frequency bin of the target peak}\\
+{\color{black}\Delta t} &= \text{time difference between anchor and target}
+\end{aligned}
+$$
+
+These values are combined into a compact hash:
+
+$$
+({\color{green}\mathbf{freq}_1},\ {\color{orange}\mathbf{freq}_2},\ {\color{black}\Delta t}) \rightarrow {\color{blue}\mathbf{hash}}
+$$
+
+The hash is stored in SQLite together with the track ID and the timestamp of the anchor peak:
+
+$$
+{\color{blue}\mathbf{hash}} \rightarrow (\mathbf{track_id},\ {\color{blue}\mathtt{time_ms}})
+$$
+
+So the database does not store the full audio signal. It stores many small fingerprints that describe characteristic peak pairs in the track.
+
+## Matching
+
+![Matching](images/matching_1-3.png)
+![Matching](images/matching_4-6.png)
+
+Matching uses the same fingerprinting process, but on a shorter query clip.
+
+The query audio is decoded, converted to mono, resampled to the same target sample rate, split into windows, transformed with FFT, and reduced to spectral peaks. Trackseek then creates hashes from anchor/target peak pairs in the query clip.
+
+Each query hash is looked up in the SQLite fingerprint database. A single matching hash is not enough to identify a track, because different songs may share some similar peak pairs. The important part is whether many hashes point to the same track at a consistent time offset.
+
+For every matching hash, Trackseek compares the timestamp from the database with the timestamp from the query clip:
+
+$$
+\mathbf{offset} = \mathtt{db\_{time\_ms}} - \mathtt{query\_{time\_ms}}
+$$
+
+Example:
+
+$$
+\begin{aligned}
+42100 - 200 &= 41900\\
+42600 - 700 &= 41900\\
+43200 - 1300 &= 41900
+\end{aligned}
+$$
+
+All three matches point to the same offset: `41900 ms`. That means the query clip probably starts around `41.9s` into that track.
+
+Trackseek groups offsets into small buckets and counts votes per track and offset bucket. The best match is the track with the strongest concentration of matching hashes at the same offset.
+
+In short:
+
+$$
+\text{many matching hashes} + \text{same track} + \text{same offset} = \text{match}
+$$
+
+$$
+\begin{aligned}
+{\color{green}\mathbf{freq}_1},\ {\color{orange}\mathbf{freq}_2}
+&= \text{frequencies of the two peaks}\\
+{\color{black}\Delta t}
+&= \text{time difference between anchor and target}\\
+{\color{blue}\mathbf{hash}}
+&= \text{compact representation of the peak pair}\\
+{\color{blue}\mathtt{time\_ms}}
+&= \text{anchor peak timestamp in the original track}
+\end{aligned}
+$$
+
 # Notes
 
-- `.wav` and `.mp3` are supported
 - this is a prototype, not a final production matcher
-- schema mismatches now fail explicitly instead of recreating existing tables automatically
 - track paths are unique, so indexing the same file path updates the existing track instead of duplicating it
-- the HTTP match endpoint returns SSE with JSON payload data
-
-# Ideas
-
-- better performance for large databases
-- make scalable
