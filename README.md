@@ -382,6 +382,8 @@ api-test/match.http
 
 # Processing details
 
+A detailed explanation of the indexing phase, matching process, and score calculation.
+
 ## Indexing
 
 ![Indexing](images/indexing_1-3.png)
@@ -397,25 +399,17 @@ Trackseek then keeps only the strongest local frequency peaks. These peaks are m
 
 Each fingerprint is created from a pair of peaks:
 
-$$
-\begin{aligned}
-{\color{green}\mathbf{freq}_1} &= \text{frequency bin of the anchor peak}\\
-{\color{orange}\mathbf{freq}_2} &= \text{frequency bin of the target peak}\\
-{\color{black}\Delta t} &= \text{time difference between anchor and target}
-\end{aligned}
-$$
+    freq1   = frequency bin of the anchor peak
+    freq2   = frequency bin of the target peak
+    delta_t = time difference between anchor and target
 
 These values are combined into a compact hash:
 
-$$
-({\color{green}\mathbf{freq}_1},\ {\color{orange}\mathbf{freq}_2},\ {\color{black}\Delta t}) \rightarrow {\color{blue}\mathbf{hash}}
-$$
+    (freq1, freq2, delta_t) -> hash
 
 The hash is stored in SQLite together with the track ID and the timestamp of the anchor peak:
 
-$$
-{\color{blue}\mathbf{hash}} \rightarrow (\mathbf{track_id},\ {\color{blue}\mathtt{time_ms}})
-$$
+    hash -> (track_id, time_ms)
 
 So the database does not store the full audio signal. It stores many small fingerprints that describe characteristic peak pairs in the track.
 
@@ -432,19 +426,15 @@ Each query hash is looked up in the SQLite fingerprint database. A single matchi
 
 For every matching hash, Trackseek compares the timestamp from the database with the timestamp from the query clip:
 
-$$
-\mathbf{offset} = \mathtt{db\_{time\_ms}} - \mathtt{query\_{time\_ms}}
-$$
+    offset = db_time_ms - query_time_ms
 
 Example:
 
-$$
-\begin{aligned}
-42100 - 200 &= 41900\\
-42600 - 700 &= 41900\\
-43200 - 1300 &= 41900
-\end{aligned}
-$$
+| Expression | Result |
+| --- | ---: |
+| `42100 - 200` | `41900` |
+| `42600 - 700` | `41900` |
+| `43200 - 1300` | `41900` |
 
 All three matches point to the same offset: `41900 ms`. That means the query clip probably starts around `41.9s` into that track.
 
@@ -452,22 +442,54 @@ Trackseek groups offsets into small buckets and counts votes per track and offse
 
 In short:
 
-$$
-\text{many matching hashes} + \text{same track} + \text{same offset} = \text{match}
-$$
+    many matching hashes + same track + same offset = match
 
-$$
-\begin{aligned}
-{\color{green}\mathbf{freq}_1},\ {\color{orange}\mathbf{freq}_2}
-&= \text{frequencies of the two peaks}\\
-{\color{black}\Delta t}
-&= \text{time difference between anchor and target}\\
-{\color{blue}\mathbf{hash}}
-&= \text{compact representation of the peak pair}\\
-{\color{blue}\mathtt{time\_ms}}
-&= \text{anchor peak timestamp in the original track}
-\end{aligned}
-$$
+Terminology:
+
+| Term | Meaning |
+| --- | --- |
+| `freq1`, `freq2` | frequencies of the two peaks |
+| `delta_t` | time difference between anchor and target |
+| `hash` | compact representation of the peak pair |
+| `time_ms` | anchor peak timestamp in the original track |
+
+### Score
+
+The score is the number of query fingerprints that vote for the same indexed track at the same time offset.
+
+Each query fingerprint produces a hash and a timestamp inside the query clip. When that hash is found in the SQLite database, Trackseek compares the timestamp from the indexed track with the timestamp from the query:
+
+    offset = db_time_ms - query_time_ms
+
+The match is counted as a vote for this combination:
+
+    track_id + offset_bucket
+
+The offset is bucketed, for example in 100 ms buckets, so tiny timing differences do not split one real match into many separate offsets.
+
+Example:
+
+| Hash | Track ID | DB time | Query time | Offset | Vote |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `hash_a` | `12` | `42100` | `200` | `41900` | `track 12, offset 41900` |
+| `hash_b` | `12` | `42600` | `700` | `41900` | `track 12, offset 41900` |
+| `hash_c` | `12` | `43200` | `1300` | `41900` | `track 12, offset 41900` |
+
+All three hashes vote for the same track and the same offset, so the score for that candidate becomes:
+
+    score = 3
+
+A stronger match has many hashes voting for the same `(track_id, offset_bucket)` pair.
+
+Example result:
+
+| Candidate | Score |
+| --- | ---: |
+| `track 12, offset 41900` | `87` |
+| `track 7, offset 12000` | `4` |
+| `track 19, offset 70000` | `2` |
+
+The best match is the candidate with the highest score. In this example, track `12` wins because many query fingerprints agree that the clip starts around `41900 ms`, or `41.9s`, into that track.
 
 # Notes
 
