@@ -386,8 +386,7 @@ A detailed explanation of the indexing phase, matching process, and score calcul
 
 ## Indexing
 
-![Indexing](images/indexing_1-3.png)
-![Indexing](images/indexing_4-7.png)
+![Indexing](images/indexing.png)
 
 During indexing, `trackseek` converts an audio file into a set of compact fingerprints.
 
@@ -415,8 +414,7 @@ So the database does not store the full audio signal. It stores many small finge
 
 ## Matching
 
-![Matching](images/matching_1-3.png)
-![Matching](images/matching_4-6.png)
+![Matching](images/matching.png)
 
 Matching uses the same fingerprinting process, but on a shorter query clip.
 
