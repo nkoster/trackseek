@@ -2,7 +2,7 @@
 
 `trackseek` is a small Shazam-like lab project in Go.
 
-The idea is simple:
+The idea is:
 
 - index audio files into a SQLite database
 - store audio fingerprints
@@ -69,6 +69,8 @@ fingerprints
 - `time_ms`
 
 # Build
+
+First clone the repo. Next:
 
 ```bash
 go build
