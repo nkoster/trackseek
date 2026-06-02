@@ -1,6 +1,7 @@
 # trackseek
 
-`trackseek` is a small [Shazam](https://www.shazam.com/)-like lab project in Go.
+`trackseek` is a small [Shazam](https://www.shazam.com/)-like audio fingerprinting tool for
+indexing and identifying music tracks from local audio files, written in Go.
 
 The idea is:
 
