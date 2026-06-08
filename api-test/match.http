@@ -9,7 +9,7 @@ Accept: text/event-stream
 --TrackseekBoundary
 Content-Disposition: form-data; name="minScore"
 
-100
+300
 --TrackseekBoundary
 Content-Disposition: form-data; name="threshold"
 
